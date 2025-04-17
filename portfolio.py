@@ -330,3 +330,47 @@ class Portfolio:
                 )
         except RequestException as err:
             raise RequestException(f"failed to communicate with server: {str(err)}")
+
+    def total_cost_basis(self):
+        """
+        Calculates the total value invested in the portfolio
+        """
+        response = requests.get(f"{server_base_url}/portfolio")
+        df = pd.DataFrame(response.json())
+        return df["cost_basis"].sum()
+
+    def total_market_value(self):
+        """
+        Calculates the total market value of the portfolio
+        """
+        response = requests.get(f"{server_base_url}/portfolio")
+        df = pd.DataFrame(response.json())
+        return df["market_value"].sum()
+
+    def total_pl(self):
+        """
+        Calculates the total P&L of the portfolio
+        """
+        response = requests.get(f"{server_base_url}/portfolio")
+        df = pd.DataFrame(response.json())
+        return df["pl"].sum()
+
+    def assets_weights(self):
+        """
+        Calculates weights for each asset and returns a dataframe that contains two columns: ticker and weights
+        """
+        response = requests.get(f"{server_base_url}/portfolio")
+        df = pd.DataFrame(response.json())
+        total_market_val = self.total_market_value()
+        weights = df["market_value"] / total_market_val
+        return pd.DataFrame({"ticker": df["ticker"], "weight": weights})
+
+    def portfolio_return(self):
+        """
+        Calculates portfolio return
+        """
+        response = requests.get(f"{server_base_url}/portfolio")
+        df = pd.DataFrame(response.json())
+        w = self.assets_weights()
+        new_df = df.merge(w, on="ticker")
+        return round(sum(new_df["pl_pct"] * new_df["weight"]), 3)
