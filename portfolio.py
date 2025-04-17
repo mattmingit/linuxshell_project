@@ -140,7 +140,7 @@ class Portfolio:
                     "market_price": round(market_price, 3),
                     "market_value": round(market_value, 3),
                     "pl": round(market_value - new_cost_basis, 3),
-                    "pl_pct": round(((market_value / new_cost_basis) - 1) * 100, 3),
+                    "pl_pct": round(((market_value / new_cost_basis) - 1), 6),
                     "created_date": existing_position["created_date"],
                     "last_updated_date": created_date,
                 }
@@ -163,13 +163,13 @@ class Portfolio:
             response = requests.post(f"{server_base_url}/orders", json=order_data)
             if response.status_code != 200:
                 raise ValueError(f"failed to insert buy order: {response.text}")
-            print(response.json())
+            print(f"Server response: {response.json()}")
             response = requests.post(
                 f"{server_base_url}/portfolio", json=portfolio_data
             )
             if response.status_code != 200:
                 raise ValueError(f"failed to update portfolio: {response.text}")
-            print(response.json())
+            print(f"Server response: {response.json()}")
             print(f"Buy order of {quantity} for {ticker}: {price:.3f} {currency}")
         except RequestException as err:
             raise RequestException(f"failed to communicate with server: {str(err)}")
@@ -256,7 +256,7 @@ class Portfolio:
                         "market_price": round(price, 3),
                         "market_value": round(market_value, 3),
                         "pl": round(market_value - new_cost_basis, 3),
-                        "pl_pct": round(((market_value / new_cost_basis) - 1) * 100, 3),
+                        "pl_pct": round(((market_value / new_cost_basis) - 1), 6),
                         "created_date": existing_position["created_date"],
                         "last_updated_date": created_date,
                     }
@@ -291,5 +291,42 @@ class Portfolio:
                 raise ValueError(f"failed to update portfolio: {response.text}")
             print(f"Server response: {response.json()}")
             print(f"Sell order of {quantity} for {ticker}: {price:.3f} {currency}")
+        except RequestException as err:
+            raise RequestException(f"failed to communicate with server: {str(err)}")
+
+    def update_portfolio_positions(self):
+        """
+        Update portfolio positions obtaining latest market price and updating market value, P&L and P&L percentage
+        """
+        last_updated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            response = requests.get(f"{server_base_url}/portfolio")
+            portfolio = response.json()
+            for position in portfolio:
+                ticker = position["ticker"]
+                market_price = self._get_lastest_price(ticker)
+                market_value = position["quantity"] * market_price
+                portfolio_data = {
+                    "ticker": ticker,
+                    "quantity": position["quantity"],
+                    "currency": position["currency"],
+                    "transaction_date": position["transaction_date"],
+                    "avg_buy_price": position["avg_buy_price"],
+                    "cost_basis": position["cost_basis"],
+                    "market_price": round(market_price, 3),
+                    "market_value": round(market_value, 3),
+                    "pl": round(market_value - position["cost_basis"], 3),
+                    "pl_pct": round(((market_value / position["cost_basis"]) - 1), 6),
+                    "created_date": position["created_date"],
+                    "last_updated_date": last_updated_date,
+                }
+                response = requests.post(
+                    f"{server_base_url}/portfolio", json=portfolio_data
+                )
+                if response.status_code != 200:
+                    raise ValueError(f"failed to update portfolio: {response.text}")
+                print(
+                    f"Updated position for {ticker}; server response: {response.json()}"
+                )
         except RequestException as err:
             raise RequestException(f"failed to communicate with server: {str(err)}")
