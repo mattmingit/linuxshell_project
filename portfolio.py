@@ -25,21 +25,19 @@ class Portfolio:
             The date to process
         """
         if date is None:
-            dt = datetime.now()
-        else:
-            try:
-                dt = datetime.strptime(date, "%Y-%m-%d")
-            except ValueError:
-                raise ValueError(
-                    f"Invalid date format: current format: {date}, allowed format: %Y-%m-%d"
-                )
-        if dt > datetime.now():
+            return datetime.now().strftime("%Y-%m-%d")
+        try:
+            parsed_date = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(
+                f"Invalid date format: current format: {date}, allowed format: %Y-%m-%d"
+            )
+
+        if parsed_date > datetime.now():
             raise ValueError(
                 f"Invalid date: the provided date is in the future: {date} > {datetime.now().strftime('%Y-%m-%d')}"
             )
-        transaction_date = dt.strftime("%Y-%m-%d")
-        # created_date = dt.strftime("%Y-%m-%d %H:%M:%S")
-        return transaction_date  # , created_date
+        return date
 
     def _get_lastest_price(self, ticker: str) -> float:
         """
@@ -95,7 +93,6 @@ class Portfolio:
             raise ValueError(
                 f"buy order failed: quantity must be a positive number greater than zero: invalid quantity: {quantity}"
             )
-        # transaction_date, created_date = self._validate_date(date)
         transaction_date = self._validate_date(date)
         created_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -121,6 +118,7 @@ class Portfolio:
         }
 
         try:
+            # checks if we already own the asset
             response = requests.get(f"{server_base_url}/portfolio")
             portfolio = response.json()
             existing_position = next(
@@ -165,11 +163,133 @@ class Portfolio:
             response = requests.post(f"{server_base_url}/orders", json=order_data)
             if response.status_code != 200:
                 raise ValueError(f"failed to insert buy order: {response.text}")
+            print(response.json())
             response = requests.post(
                 f"{server_base_url}/portfolio", json=portfolio_data
             )
             if response.status_code != 200:
                 raise ValueError(f"failed to update portfolio: {response.text}")
+            print(response.json())
             print(f"Buy order of {quantity} for {ticker}: {price:.3f} {currency}")
+        except RequestException as err:
+            raise RequestException(f"failed to communicate with server: {str(err)}")
+
+    def sell_order(
+        self,
+        ticker: str,
+        quantity: int,
+        price: Optional[float] = None,
+        date: Optional[str] = None,
+        currency: str = "USD",
+    ):
+        """
+        Insert a sell order
+
+        Parameters
+        ----------
+        ticker : str
+            The ticker symbol of the asset
+        quantity : int
+            The number of contracts traded in the transaction
+        price : float
+            The price of the asset during the trade. If not provided it is obtained from yahoo! finance
+        date : datetime
+            The date of the trade. If not provided it is set to datetime.now (current datetime)
+        currency : str
+            The currency used in the transaction. It defaults to USD (United States Dollar)
+        """
+        if not ticker:
+            raise ValueError(f"sell order failed: ticker symbol is required.")
+
+        if price is not None and price < 0:
+            raise ValueError(
+                f"sell order failed: price must be positive: invalid price: {price}"
+            )
+
+        if quantity <= 0:
+            raise ValueError(
+                f"sell order failed: quantity must be a positive number greater than zero: invalid quantity: {quantity}"
+            )
+        transaction_date = self._validate_date(date)
+        created_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if price is None:
+            price = self._get_lastest_price(ticker)
+        elif price < 0:
+            raise ValueError(
+                f"buy order failed: price must be a positive number: invalid price: {price}"
+            )
+
+        try:
+            response = requests.get(f"{server_base_url}/portfolio")
+            portfolio = response.json()
+            existing_position = next(
+                (pos for pos in portfolio if pos["ticker"] == ticker), None
+            )
+
+            if existing_position:
+                # update existing position
+                new_quantity = existing_position["quantity"] - quantity
+                cost_basis = quantity * existing_position["avg_buy_price"]
+                order_data = {
+                    "ticker": ticker,
+                    "order_type": "SELL",
+                    "quantity": quantity,
+                    "currency": currency,
+                    "transaction_date": transaction_date,
+                    "price": round(price, 3),
+                    "transaction_value": round(price * quantity, 3),
+                    "created_date": created_date,
+                    "last_updated_date": created_date,
+                }
+                if new_quantity > 0:
+                    new_cost_basis = existing_position["cost_basis"] - cost_basis
+                    new_avg_buy_price = new_cost_basis / new_quantity
+                    market_value = new_quantity * price
+                    portfolio_data = {
+                        "ticker": ticker,
+                        "quantity": new_quantity,
+                        "currency": currency,
+                        "transaction_date": transaction_date,
+                        "avg_buy_price": round(new_avg_buy_price, 3),
+                        "cost_basis": round(new_cost_basis, 3),
+                        "market_price": round(price, 3),
+                        "market_value": round(market_value, 3),
+                        "pl": round(market_value - new_cost_basis, 3),
+                        "pl_pct": round(((market_value / new_cost_basis) - 1) * 100, 3),
+                        "created_date": existing_position["created_date"],
+                        "last_updated_date": created_date,
+                    }
+                else:
+                    portfolio_data = {
+                        "ticker": ticker,
+                        "quantity": new_quantity,
+                        "currency": currency,
+                        "transaction_date": transaction_date,
+                        "avg_buy_price": 0.0,
+                        "cost_basis": 0.0,
+                        "market_price": 0.0,
+                        "market_value": 0.0,
+                        "pl": 0.0,
+                        "pl_pct": 0.0,
+                        "created_date": existing_position["created_date"],
+                        "last_updated_date": created_date,
+                    }
+            else:
+                raise ValueError(
+                    f"sell order failed: no existing position found for ticker {ticker}."
+                )
+
+            response = requests.post(f"{server_base_url}/orders", json=order_data)
+            if response.status_code != 200:
+                raise ValueError(f"failed to insert buy order: {response.text}")
+            print(f"Server response: {response.json()}")
+            response = requests.post(
+                f"{server_base_url}/portfolio", json=portfolio_data
+            )
+            if response.status_code != 200:
+                raise ValueError(f"failed to update portfolio: {response.text}")
+            print(f"Server response: {response.json()}")
+            print(f"Sell order of {quantity} for {ticker}: {price:.3f} {currency}")
         except RequestException as err:
             raise RequestException(f"failed to communicate with server: {str(err)}")

@@ -140,26 +140,31 @@ def update_portfolio():
 
     try:
         with sqlite3.connect("securities_master.db") as conn:
-            conn.execute(
-                """
-            INSERT OR REPLACE INTO portfolio 
-            (ticker, quantity, currency, transaction_date, avg_buy_price, cost_basis, market_price, market_value, pl, pl_pct, created_date, last_updated_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    data["ticker"],
-                    data["quantity"],
-                    data["currency"],
-                    data["transaction_date"],
-                    data["avg_buy_price"],
-                    data["cost_basis"],
-                    data["market_price"],
-                    data["market_value"],
-                    data["pl"],
-                    data["pl_pct"],
-                    data["created_date"],
-                    data["last_updated_date"],
-                ),
-            )
+            if data["quantity"] == 0:
+                conn.execute(
+                    "DELETE FROM portfolio WHERE ticker = ?", (data["ticker"],)
+                )
+            else:
+                conn.execute(
+                    """
+                INSERT OR REPLACE INTO portfolio 
+                (ticker, quantity, currency, transaction_date, avg_buy_price, cost_basis, market_price, market_value, pl, pl_pct, created_date, last_updated_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        data["ticker"],
+                        data["quantity"],
+                        data["currency"],
+                        data["transaction_date"],
+                        data["avg_buy_price"],
+                        data["cost_basis"],
+                        data["market_price"],
+                        data["market_value"],
+                        data["pl"],
+                        data["pl_pct"],
+                        data["created_date"],
+                        data["last_updated_date"],
+                    ),
+                )
         return jsonify({"message": "Portfolio updated successfully"}), 200
     except Exception as err:
         return jsonify({"error": str(err)}), 500
