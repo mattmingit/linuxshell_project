@@ -1079,7 +1079,7 @@ from requests.exceptions import RequestException
 SERVER_BASE_URL = "http://127.0.01:5000"
 
 class Portfolio:
-def **init**(self) -> None:
+def __init__(self) -> None:
 """Initializes an empty Portfolio instance"""
 pass
 
