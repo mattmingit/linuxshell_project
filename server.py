@@ -2,12 +2,14 @@ import sqlite3
 
 from flask import Flask, jsonify, request
 
+DATABASE = "securities_master.db"
+
 app = Flask(__name__)
 
 
 def init_db():
     try:
-        with sqlite3.connect("securities_master.db") as conn:
+        with sqlite3.connect(DATABASE) as conn:
             conn.execute(
                 """
             CREATE TABLE IF NOT EXISTS orders (
@@ -42,7 +44,7 @@ def init_db():
             )
             """
             )
-        print("securities_master database was initialized correctly")
+            print("securities_master database was initialized correctly")
     except Exception as err:
         raise RuntimeError(f"Failed to init securities_master database: {str(err)}")
 
@@ -50,13 +52,11 @@ def init_db():
 @app.route("/orders", methods=["GET"])
 def list_orders():
     try:
-        with sqlite3.connect("securities_master.db") as conn:
+        with sqlite3.connect(DATABASE) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute("SELECT * FROM orders ORDER BY transaction_date ASC")
-            # orders = cur.fetchall()
             orders = [dict(row) for row in cur.fetchall()]
-            # return jsonify(dict(row) for row in orders), 200
             return jsonify(orders), 200
     except Exception as err:
         return jsonify({"error": str(err)}), 500
@@ -65,13 +65,11 @@ def list_orders():
 @app.route("/portfolio", methods=["GET"])
 def list_portfolio():
     try:
-        with sqlite3.connect("securities_master.db") as conn:
+        with sqlite3.connect(DATABASE) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute("SELECT * FROM portfolio")
-            # portfolio = cur.fetchall()
             portfolio = [dict(row) for row in cur.fetchall()]
-            # return jsonify(dict(row) for row in portfolio), 200
             return jsonify(portfolio), 200
     except Exception as err:
         return jsonify({"error": str(err)}), 500
@@ -95,7 +93,7 @@ def add_order():
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        with sqlite3.connect("securities_master.db") as conn:
+        with sqlite3.connect(DATABASE) as conn:
             conn.execute(
                 """
             INSERT OR REPLACE INTO orders 
@@ -139,7 +137,7 @@ def update_portfolio():
         return jsonify({"error", "Missing required fields"}), 400
 
     try:
-        with sqlite3.connect("securities_master.db") as conn:
+        with sqlite3.connect(DATABASE) as conn:
             if data["quantity"] == 0:
                 conn.execute(
                     "DELETE FROM portfolio WHERE ticker = ?", (data["ticker"],)
