@@ -8,6 +8,9 @@ app = Flask(__name__)
 
 
 def init_db():
+    """
+    Initialize the database and create tables if they do not exist.
+    """
     try:
         with sqlite3.connect(DATABASE) as conn:
             conn.execute(
@@ -44,13 +47,16 @@ def init_db():
             )
             """
             )
-            print("securities_master database was initialized correctly")
+            print("Database 'securities_master' initialized successfully.")
     except Exception as err:
-        raise RuntimeError(f"Failed to init securities_master database: {str(err)}")
+        raise RuntimeError(f"Failed to initialize database: {str(err)}")
 
 
 @app.route("/orders", methods=["GET"])
 def list_orders():
+    """
+    Retrieve all orders, sorted by transaction date.
+    """
     try:
         with sqlite3.connect(DATABASE) as conn:
             conn.row_factory = sqlite3.Row
@@ -59,11 +65,14 @@ def list_orders():
             orders = [dict(row) for row in cur.fetchall()]
             return jsonify(orders), 200
     except Exception as err:
-        return jsonify({"error": str(err)}), 500
+        return jsonify({"error": f"Unable to fetch orders: {str(err)}"}), 500
 
 
 @app.route("/portfolio", methods=["GET"])
 def list_portfolio():
+    """
+    Retrieve the current state of the portfolio.
+    """
     try:
         with sqlite3.connect(DATABASE) as conn:
             conn.row_factory = sqlite3.Row
@@ -72,13 +81,16 @@ def list_portfolio():
             portfolio = [dict(row) for row in cur.fetchall()]
             return jsonify(portfolio), 200
     except Exception as err:
-        return jsonify({"error": str(err)}), 500
+        return jsonify({"error": f"Unable to fetch portfolio: {str(err)}"}), 500
 
 
 @app.route("/orders", methods=["POST"])
 def add_order():
+    """
+    Add a new order to orders table.
+    """
     data = request.get_json()
-    required_fileds = [
+    required_fields = [
         "ticker",
         "order_type",
         "quantity",
@@ -89,8 +101,18 @@ def add_order():
         "created_date",
         "last_updated_date",
     ]
-    if not all(field in data for field in required_fileds):
-        return jsonify({"error": "Missing required fields"}), 400
+
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return (
+            jsonify(
+                {
+                    "error": "Missing required fields",
+                    "details": f"Missing fields: {', '.join(missing_fields)}",
+                }
+            ),
+            400,
+        )
 
     try:
         with sqlite3.connect(DATABASE) as conn:
@@ -113,11 +135,14 @@ def add_order():
             )
         return jsonify({"message": "Order added successfully"}), 200
     except Exception as err:
-        return jsonify({"error": str(err)}), 500
+        return jsonify({"error": f"Failed to insert order: {str(err)}"}), 500
 
 
 @app.route("/portfolio", methods=["POST"])
 def update_portfolio():
+    """
+    Create, update or delete portfolio position.
+    """
     data = request.get_json()
     required_fields = [
         "ticker",
@@ -133,14 +158,31 @@ def update_portfolio():
         "created_date",
         "last_updated_date",
     ]
-    if not all(field in data for field in required_fields):
-        return jsonify({"error", "Missing required fields"}), 400
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return (
+            jsonify(
+                {
+                    "error": "Missing required fields",
+                    "details": f"Missing fields: {', '.join(missing_fields)}",
+                }
+            ),
+            400,
+        )
 
     try:
         with sqlite3.connect(DATABASE) as conn:
             if data["quantity"] == 0:
                 conn.execute(
                     "DELETE FROM portfolio WHERE ticker = ?", (data["ticker"],)
+                )
+                return (
+                    jsonify(
+                        {
+                            "message": f"Closed {data['ticker']} position. Removed from portfolio."
+                        }
+                    ),
+                    200,
                 )
             else:
                 conn.execute(
@@ -165,7 +207,7 @@ def update_portfolio():
                 )
         return jsonify({"message": "Portfolio updated successfully"}), 200
     except Exception as err:
-        return jsonify({"error": str(err)}), 500
+        return jsonify({"error": f"Failed to updated portfolio: {str(err)}"}), 500
 
 
 if __name__ == "__main__":

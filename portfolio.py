@@ -1,3 +1,4 @@
+from csv import QUOTE_NONE
 from datetime import datetime
 from typing import Optional
 
@@ -6,6 +7,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 from requests.exceptions import RequestException
+from yfinance.screener.screener import PREDEFINED_SCREENER_BODY_DEFAULTS
 
 SERVER_BASE_URL = "http://127.0.01:5000"
 
@@ -198,6 +200,8 @@ class Portfolio:
 
         cost_basis = quantity * price
 
+        ticker = ticker.upper()
+        currency = currency.upper()
         order_data = {
             "ticker": ticker,
             "order_type": "BUY",
@@ -310,6 +314,9 @@ class Portfolio:
         if price is None:
             price = self._get_lastest_price(ticker)
 
+        ticker = ticker.upper()
+        currency = currency.upper()
+
         try:
             portfolio = self._fetch_portfolio_data()
             existing_position = next(
@@ -375,7 +382,9 @@ class Portfolio:
 
             self._post_to_server("orders", data=order_data)
             self._post_to_server("portfolio", data=portfolio_data)
-            print(f"Sell order of {quantity} for {ticker}: {price:.3f} {currency}")
+            print(
+                f"Sell order placed: {quantity} contracts of {ticker} at {price:.3f} {currency}"
+            )
         except RequestException as err:
             raise RequestException(
                 f"Sell order failed: unable to communicate with server: {str(err)}"
@@ -426,21 +435,7 @@ class Portfolio:
         pd.DataFrame
             DataFrame of order records
         """
-        df = pd.DataFrame(requests.get(f"{SERVER_BASE_URL}/orders").json())
-        df = df[
-            [
-                "id",
-                "ticker",
-                "transaction_date",
-                "order_type",
-                "quantity",
-                "currency",
-                "price",
-                "created_date",
-                "last_updated_date",
-            ]
-        ]
-        return df
+        return pd.DataFrame(requests.get(f"{SERVER_BASE_URL}/orders").json())
 
     def _generate_portfolio_dataframe(self) -> pd.DataFrame:
         """
@@ -451,24 +446,7 @@ class Portfolio:
         pd.DataFrame
             DataFrame of portfolio holdings.
         """
-        df = pd.DataFrame(requests.get(f"{SERVER_BASE_URL}/portfolio").json())
-        df = df[
-            [
-                "ticker",
-                "quantity",
-                "currency",
-                "transaction_date",
-                "avg_buy_price",
-                "cost_basis",
-                "market_price",
-                "market_value",
-                "pl",
-                "pl_pct",
-                "created_date",
-                "last_updated_date",
-            ]
-        ]
-        return df
+        return pd.DataFrame(requests.get(f"{SERVER_BASE_URL}/portfolio").json())
 
     def total_cost_basis(self) -> float:
         """
@@ -514,7 +492,7 @@ class Portfolio:
         """
         df = self._generate_portfolio_dataframe()
         total_value = self.total_market_value()
-        weights = df["market_value"] / total_value
+        weights = round(df["market_value"] / total_value, 3)
         return pd.DataFrame({"ticker": df["ticker"], "weight": weights})
 
     def portfolio_return(self) -> float:
@@ -544,7 +522,7 @@ class Portfolio:
         weights = self.assets_weights()
         tickers = df["ticker"].to_list()
         returns = (
-            yf.download(tickers, period="10y", interval="1mo")["Close"]
+            yf.download(tickers, period="10y", interval="1mo", progress=False)["Close"]
             .pct_change(fill_method=None)
             .dropna()
         )
@@ -563,7 +541,7 @@ class Portfolio:
         """
         tickers = self._generate_portfolio_dataframe()["ticker"].tolist()
         returns = (
-            yf.download(tickers, period="10y", interval="1mo")["Close"]
+            yf.download(tickers, period="10y", interval="1mo", progress=False)["Close"]
             .pct_change(fill_method=None)
             .dropna()
         )
@@ -582,7 +560,7 @@ class Portfolio:
         tickers = df["ticker"].tolist()
         weights = self.assets_weights().set_index("ticker")["weight"]
         returns = (
-            yf.download(tickers, period="1y", interval="1d")["Close"]
+            yf.download(tickers, period="ytd", interval="1d", progress=False)["Close"]
             .pct_change(fill_method=None)
             .dropna()
         )
@@ -590,3 +568,37 @@ class Portfolio:
         portfolio_returns = weighted_returns.sum(axis=1)
         cumulative_returns = (1 + portfolio_returns).cumprod() - 1
         return cumulative_returns
+
+    def portfolio_stats(self) -> pd.DataFrame:
+        """
+        Caculates some portfolio statistics
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame that contains portfolio statistics
+        """
+        df = self._generate_portfolio_dataframe()
+        tickers = df["ticker"].tolist()
+        quantity = df[["ticker", "quantity"]]
+        df = yf.download(tickers, period="1y", interval="1d", progress=False)["Close"]
+        for t in quantity["ticker"]:
+            df[t] = df[t] * quantity.loc[quantity["ticker"] == t, "quantity"].values[0]
+        df = df.dropna()
+        df = df.sum(axis=1)
+        result_df = pd.DataFrame(
+            {
+                "portfolio cost basis": [self.total_cost_basis()],
+                "portfolio market value": [self.total_market_value()],
+                "portfolio P&L": [self.total_pl()],
+                "portfolio return (%)": [self.portfolio_return() * 100],
+                "portfolio ann. volatility (%)": [
+                    self.annualized_portfolio_volatility() * 100
+                ],
+                "52wk max value": [max(df)],
+                "52wk min value": [min(df)],
+            }
+        )
+        result_df = round(result_df.T, 3)
+        result_df.columns = ["stats"]
+        return result_df

@@ -4,10 +4,6 @@
     Linuxshell progetto esame
 </h1>
 
-<p align="center">
-<strong>&#x26A0; Il codice scritto finora e la seguente relazione possono essere oggetto di modifiche in qualsiasi momento. La versione definitiva sará disponibile a progetto concluso.</strong>
-</p>
-
 Il presente progetto ha lo scopo di sviluppare un'applicazione in Python per la gestione di un portafoglio finanziario. L'applicazione consente di inserire ordini di acquisto e vendita di strumenti finanziari, tenere traccia delle posizioni aperte e calcolare alcune metriche utili per l'analisi del portfaglio, come il valore totale, il profitto/perdita del portfaglio e la distribuzione degli investimenti.
 
 L'idea nasce con l'intento di applicare le conoscenze acquisite durante il corso di Python. Il progetto è sviluppato in linguaggio **Python**, utilizzando librerie standard e alcune librerie esterne per la _gestione dei dati_, l'_elaborazione numerica_ e la _visualizzazione grafica_.
@@ -27,9 +23,9 @@ Grazie all'integrazione di queste tecnologie, l'applicazione è in grado di eseg
 
 ### Funzionalità principali
 
-L'applicazione offre una serie di funzionalità progettate per simulare la gestione di un portfoglio finanziario in modo semplice, interattivo e accessibile via web. Le principali funzionalità implementate sono:
+L'applicazione offre una serie di funzionalità progettate per simulare la gestione di un portafoglio finanziario in modo semplice, interattivo e accessibile via web. Le principali funzionalità implementate sono:
 
-1. **inserimento di ordini di acquisto e vendita**: l'utente può registrare _ordini di acquisto_ (**buy**) e _vendita_ (**sell**) specificando il ticker del titolo (es. `AAPL` per Apple), la quantità desiderata, il prezzo, la data dell'operazione di acquisto/vendita e la valuta con cui è stata eseguita la transazione. Gli ordini vengono elaborati dal backend e utilizzati per aggiornare la composizione del portafoglio in tempo reale.
+1. **inserimento di ordini di acquisto e vendita**: l'utente può registrare _ordini di acquisto_ (**buy**) e _vendita_ (**sell**) specificando il ticker del titolo (es. `AAPL` per Apple), la quantità desiderata, il prezzo (se non inserito il programma utilizza il prezzo di mercato corrente), la data dell'operazione di acquisto/vendita (se non inserita il programma utilizza la data corrente) e la valuta con cui è stata eseguita la transazione (se non spcificata il programma utilizza di default USD). Gli ordini vengono elaborati dal backend e utilizzati per aggiornare la composizione del portafoglio in tempo reale.
 
 2. **recupero dati di mercato**: attraverso la libreria `yfinance`, l'applicazione recupera informazioni aggiornate sui titoli azionari, tra cui:
 
@@ -183,14 +179,14 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
            )
            """
            )
-           print("securities_master database was initialized correctly")
+           print("Database 'securities_master' initialized successfully.")
    except Exception as err:
-       raise RuntimeError(f"Failed to init securities_master database: {str(err)}")
+       raise RuntimeError(f"Failed to initialize database: {str(err)}")
   ```
 
    </details>
 
-  Inizializza il database SQLite e crea le tabelle `portfolio` e `orders` in caso non esistano già. La fuzione è utile per avviare il progetto senza configurazioni manuali iniziali. Mediante il metodo `sqlite3.connect() as conn` si crea la connessione al database e mediante `conn.execute()` vengono eseguite le queries.
+  Inizializza il database SQLite e crea le tabelle `portfolio` e `orders` in caso non esistano già. La fuzione è utile per avviare il progetto senza configurazioni manuali iniziali. Mediante il metodo `sqlite3.connect()` si crea la connessione al database e mediante `conn.execute()` vengono eseguite le queries.
 
 - `list_orders()`
   <details>
@@ -207,7 +203,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
                 orders = [dict(row) for row in cur.fetchall()]
                 return jsonify(orders), 200
         except Exception as err:
-            return jsonify({"error": str(err)}), 500
+            return jsonify({"error": f"Unable to fetch orders: {str(err)}"}), 500
   ```
 
    </details>
@@ -229,7 +225,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
               portfolio = [dict(row) for row in cur.fetchall()]
               return jsonify(portfolio), 200
       except Exception as err:
-          return jsonify({"error": str(err)}), 500
+          return jsonify({"error": f"Unable to fetch portfolio: {str(err)}"}), 500
   ```
 
   </details>
@@ -244,7 +240,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
   @app.route("/orders", methods=["POST"])
   def add_order():
       data = request.get_json()
-      required_fileds = [
+      required_fields = [
           "ticker",
           "order_type",
           "quantity",
@@ -255,8 +251,13 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
           "created_date",
           "last_updated_date",
       ]
-      if not all(field in data for field in required_fileds):
-          return jsonify({"error": "Missing required fields"}), 400
+
+      missing_fields = [field for field in required_fields if field not in data]
+      if missing_fields:
+          return jsonify({
+              "error": "Missing required fields",
+              "details": f"Missing fields: {', '.join(missing_fields)}"
+          }), 400
 
       try:
           with sqlite3.connect(DATABASE) as conn:
@@ -279,7 +280,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
               )
           return jsonify({"message": "Order added successfully"}), 200
       except Exception as err:
-          return jsonify({"error": str(err)}), 500
+          return jsonify({"error": f"Failed to insert order: {str(err)}"}), 500
   ```
 
   </details>
@@ -310,8 +311,13 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
              "created_date",
              "last_updated_date",
          ]
-         if not all(field in data for field in required_fields):
-             return jsonify({"error", "Missing required fields"}), 400
+
+         missing_fields = [field for field in required_fields if field not in data]
+         if missing_fields:
+           return jsonify({
+               "error": "Missing required fields",
+               "details": f"Missing fields: {', '.join(missing_fields)}"
+           }), 400
 
          try:
              with sqlite3.connect(DATABASE) as conn:
@@ -319,6 +325,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
                      conn.execute(
                      "DELETE FROM portfolio WHERE ticker = ?", (data["ticker"],)
                      )
+                     return jsonify({"message": f"Closed {data['ticker']} position. Removed from portfolio."})
                  else:
                      conn.execute(
                      """
@@ -342,7 +349,7 @@ Entrambe le tabelle vengono create, se non esistono, alla partenza dell'applicaz
                  )
              return jsonify({"message": "Portfolio updated successfully"}), 200
          except Exception as err:
-             return jsonify({"error": str(err)}), 500
+             return jsonify({"error": f"Failed to update portfolio: {str(err)}"}), 500
   ```
 
     </details>
@@ -413,9 +420,9 @@ def init_db():
           )
           """
           )
-          print("securities_master database was initialized correctly")
+          print("Database 'securities_master' initialized successfully.")
   except Exception as err:
-      raise RuntimeError(f"Failed to init securities_master database: {str(err)}")
+      raise RuntimeError(f"Failed to initialize database: {str(err)}")
 
 
 @app.route("/orders", methods=["GET"])
@@ -428,7 +435,7 @@ def list_orders():
           orders = [dict(row) for row in cur.fetchall()]
           return jsonify(orders), 200
   except Exception as err:
-      return jsonify({"error": str(err)}), 500
+      return jsonify({"error": f"Unable to fetch orders: {str(err)}"}), 500
 
 
 @app.route("/portfolio", methods=["GET"])
@@ -441,7 +448,7 @@ def list_portfolio():
           portfolio = [dict(row) for row in cur.fetchall()]
           return jsonify(portfolio), 200
   except Exception as err:
-      return jsonify({"error": str(err)}), 500
+      return jsonify({"error": f"Unable to fetch portfolio: {str(err)}"}), 500
 
 
 @app.route("/orders", methods=["POST"])
@@ -458,8 +465,12 @@ def add_order():
       "created_date",
       "last_updated_date",
   ]
-  if not all(field in data for field in required_fileds):
-      return jsonify({"error": "Missing required fields"}), 400
+  missing_fields = [field for field in required_fields if field not in data]
+  if missing_fields:
+        return jsonify({
+            "error": "Missing required fields",
+            "details": f"Missing fields: {', '.join(missing_fields)}"
+        }), 400
 
   try:
       with sqlite3.connect(DATABASE) as conn:
@@ -482,7 +493,7 @@ def add_order():
           )
       return jsonify({"message": "Order added successfully"}), 200
   except Exception as err:
-      return jsonify({"error": str(err)}), 500
+      return jsonify({"error": f"Failed to insert order: {str(err)}"}), 500
 
 
 @app.route("/portfolio", methods=["POST"])
@@ -502,8 +513,12 @@ def update_portfolio():
       "created_date",
       "last_updated_date",
   ]
-  if not all(field in data for field in required_fields):
-      return jsonify({"error", "Missing required fields"}), 400
+  missing_fields = [field for field in required_fields if field not in data]
+  if missing_fields:
+        return jsonify({
+            "error": "Missing required fields",
+            "details": f"Missing fields: {', '.join(missing_fields)}"
+        }), 400
 
   try:
       with sqlite3.connect(DATABASE) as conn:
@@ -511,6 +526,7 @@ def update_portfolio():
               conn.execute(
                   "DELETE FROM portfolio WHERE ticker = ?", (data["ticker"],)
               )
+                return jsonify({"message": f"Closed {data['ticker']} position. Removed from portfolio"}), 200
           else:
               conn.execute(
                   """
@@ -534,7 +550,7 @@ def update_portfolio():
               )
       return jsonify({"message": "Portfolio updated successfully"}), 200
   except Exception as err:
-      return jsonify({"error": str(err)}), 500
+      return jsonify({"error": f"Failed to updated portfolio: {str(err)}"}), 500
 
 
 if __name__ == "__main__":
@@ -810,7 +826,7 @@ Attualmente il costruttore non ha parametri necessari per l'inizializzazione, ma
   ```
 
     </details>
-    Simula un ordine di vendita. Valid gli input inseriti dall'utente e verifica l'esistenza del titolo nel portafoglio. Calcola la quantità residua e aggiorna la posizione. Se la posizione viene chiusa vendendo tutti i contratti in possesso, azzera i valori. Invia l'ordine al server.
+    Simula un ordine di vendita. Valida gli input inseriti dall'utente e verifica l'esistenza del titolo nel portafoglio. Calcola la quantità residua e aggiorna la posizione. Se la posizione viene chiusa vendendo tutti i contratti in possesso, azzera i valori. Invia l'ordine al server.
 
 - `update_portfolio_positions()`
     <details>
@@ -964,7 +980,7 @@ Attualmente il costruttore non ha parametri necessari per l'inizializzazione, ma
 
     </details>
 
-  Calcola il rendimento medio ponderato del portafoglio.
+  Calcola il rendimento del portafoglio.
 
 - `annualized_portfolio_volatility()`
     <details>
@@ -1054,10 +1070,55 @@ Attualmente il costruttore non ha parametri necessari per l'inizializzazione, ma
 
     </details>
 
-    Restituisce la serie storica dei rendimenti cumulativi giornalieri dell'ultimo anno.
+  Restituisce la serie storica dei rendimenti cumulativi giornalieri dell'ultimo anno.
+
+- `portfolio_stats()`
+    <details>
+    <summary>codice</summary>
+
+  ```python
+  def portfolio_stats(self) -> pd.DataFrame:
+      """
+      Caculates some portfolio statistics
+
+      Returns
+      -------
+      pd.DataFrame
+          DataFrame that contains portfolio statistics
+      """
+      df = self._generate_portfolio_dataframe()
+      tickers = df["ticker"].tolist()
+      quantity = df[["ticker", "quantity"]]
+      df = yf.download(tickers, period="1y", interval="1d", progress=False)["Close"]
+      for t in quantity["ticker"]:
+          df[t] = df[t] * quantity.loc[quantity["ticker"] == t, "quantity"].values[0]
+      df = df.dropna()
+      df = df.sum(axis=1)
+      result_df = pd.DataFrame(
+          {
+              "portfolio cost basis": [self.total_cost_basis()],
+              "portfolio market value": [self.total_market_value()],
+              "portfolio P&L": [self.total_pl()],
+              "portfolio return (%)": [self.portfolio_return() * 100],
+              "portfolio ann. volatility (%)": [
+                  self.annualized_portfolio_volatility() * 100
+              ],
+              "52wk max value": [max(df)],
+              "52wk min value": [min(df)],
+          }
+      )
+      result_df = round(result_df.T, 3)
+      result_df.columns = ["stats"]
+      return result_df
+  ```
+
+    </details>
+
+  Restituisce un dataframe contenente alcune statistiche riguardanti il portafoglio, tra cui il rendimento del portafoglio, la volatilità annualizzata e l'attuale controvalore di mercato del portafoglio.
 
 La classe `Portfolio` possiede, inoltre, alcune funzioni "helper" (sono caratterizzate dal `_` che precede il loro nome, consistono in funzioni interne non accessibili utilizzate per "aiutare" le funzioni principali).
 Queste sono:
+
 - `_validate_date`: verifica che la data fornita sia nel formato corretto (`YYYY-MM-DD`) e non sia nel futuro.
 - `_get_latest_price`: ottiene il prezzo di chiusura più recente grazie alla libreria `yfinance`.
 - `_fetch_portfolio_data`, `_fetch_orders_data`: ottengono i dati di portafoglio e degli ordini dal backend.
@@ -1658,10 +1719,669 @@ pass
         portfolio_returns = weighted_returns.sum(axis=1)
         cumulative_returns = (1 + portfolio_returns).cumprod() - 1
         return cumulative_returns
+
+    def portfolio_stats(self) -> pd.DataFrame:
+        """
+        Caculates some portfolio statistics
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame that contains portfolio statistics
+        """
+        df = self._generate_portfolio_dataframe()
+        tickers = df["ticker"].tolist()
+        quantity = df[["ticker", "quantity"]]
+        df = yf.download(tickers, period="1y", interval="1d", progress=False)["Close"]
+        for t in quantity["ticker"]:
+            df[t] = df[t] * quantity.loc[quantity["ticker"] == t, "quantity"].values[0]
+        df = df.dropna()
+        df = df.sum(axis=1)
+        result_df = pd.DataFrame(
+            {
+                "portfolio cost basis": [self.total_cost_basis()],
+                "portfolio market value": [self.total_market_value()],
+                "portfolio P&L": [self.total_pl()],
+                "portfolio return (%)": [self.portfolio_return() * 100],
+                "portfolio ann. volatility (%)": [
+                    self.annualized_portfolio_volatility() * 100
+                ],
+                "52wk max value": [max(df)],
+                "52wk min value": [min(df)],
+            }
+        )
+        result_df = round(result_df.T, 3)
+        result_df.columns = ["stats"]
+        return result_df
 ```
 
 </details>
 
-<p align="center">
-<strong>&#x26A0; Il codice scritto finora e la seguente relazione possono essere oggetto di modifiche in qualsiasi momento. La versione definitiva sarà disponibile a progetto concluso.</strong>
-</p>
+#### `home.py`
+
+Il file `home.py` implementa una dashboard interattiva con `streamlit`, per la visualizzazione e l'analisi di un portafoglio d'investimento. Di seguito viene spiegata ogni sezione del codice.
+
+- **inizializzazione e aggiornamento automatico**
+
+  ```python
+  st_autorefresh(interval=10*1000)
+  ```
+
+  Attiva un refresh automatico della pagina ogni dieci secondi, per mantenere i dati aggiornati in tempo reale.
+
+  ```python
+  portfolio = Portfolio()
+  ```
+
+  Crea un'istanza dell'oggetto `Portfolio`, che gestisce i dati finanziari e le metriche del portafoglio.
+
+- **titolo della pagina**
+
+  ```python
+  st.title("Portfolio Dashboard")
+  ```
+
+  Visualizza il titolo principale della pagina.
+
+- **rendimenti cumulativi del portafoglio**
+
+    <details>
+    <summary>codice</summary>
+
+  ```python
+    # calculate portfolio cumulative returns and generate chart
+    try:
+        cum_ret = portfolio.portfolio_cumulative_return()
+        chart_data = cum_ret.reset_index()
+        chart_data.columns = ["date", "cumulative return"]
+        line_chart = (
+            alt.Chart(chart_data)
+            .mark_line()
+            .encode(
+                x=alt.X("date", axis=alt.Axis(format="%b %d", grid=True)),
+                y=alt.Y("cumulative return:Q", axis=alt.Axis(format=".0%")),
+                tooltip=[
+                    alt.Tooltip("date:T", title="Date"),
+                    alt.Tooltip("cumulative return:Q", title="Return", format=".3%"),
+                ],
+            )
+            .properties(title="Year-To-Date portfolio cumulative returns (%)", height=500)
+            .configure_axis(grid=True)
+        )
+        st.altair_chart(line_chart)
+    except:
+        st.error("Unable to generate cumulative returns chart.")
+        st.info("There is no return data available. Your portfolio may currently be empty.")
+  ```
+
+  </details>
+
+  Calcola i rendimenti cumulativi del portfaglio, espressi in percentuali da inizio anno.
+
+  Crea un grafico a linee usando la libreria `altair` per rappresentare l'andamento dei rendimenti del portafoglio nel tempo.
+
+  In caso di errore (es. _portafoglio vuoto_), viene mostrato un messaggio informativo con `st.error()` e `st.info()`.
+
+- **tabella con le metriche del portafoglio**
+    <details>
+    <summary>codice</summary>
+
+  ```python
+  # update portfolio positions and display portfolio dataframe
+    portfolio.update_portfolio_positions()
+    try:
+        data = portfolio._generate_portfolio_dataframe()
+        if data.empty:
+            st.warning(
+                "Your portfolio is currently empty. Add some assets to begin tracking performance."
+            )
+        st.dataframe(
+            data=data.drop(columns=["created_date", "last_updated_date"]),
+            column_config={
+                "ticker": st.column_config.TextColumn(help="Asset ticker"),
+                "quantity": st.column_config.NumberColumn(help="Asset quantity owned"),
+                "currency": st.column_config.TextColumn(help="Currency of the trade"),
+                "transaction_date": st.column_config.TextColumn(
+                  label="last transaction date", help="Trade execution day"
+                ),
+                "avg_buy_price": st.column_config.NumberColumn(
+                    label="average buy price", help="Average price paid for a single contract"
+                ),
+                "cost_basis": st.column_config.NumberColumn(
+                    label="cost basis",
+                    help="Total amount invested for the single position"
+                ),
+                "market_price": st.column_config.NumberColumn(
+                    label="market price", help="Current market price of the asset"
+                ),
+                "market_value": st.column_config.NumberColumn(
+                    label="market value", help="Total market value of the single position"
+                ),
+                "pl": st.column_config.NumberColumn(label="P&L", help="Profit & Loss"),
+                "pl_pct": st.column_config.NumberColumn(
+                    label="P&L (%)", format="percent", help="P&L percentage"
+                ),
+            },
+            hide_index=True,
+            column_order=[
+                "ticker",
+                "quantity",
+                "currency",
+                "transaction_date",
+                "avg_buy_price",
+                "cost_basis",
+                "market_price",
+                "market_value",
+                "pl",
+                "pl_pct",
+                "created_date",
+                "last_updated_date",
+            ],
+        )
+    except:
+        st.error(f"Failed to load portfolio details.")
+        st.info("Ensure assets have been added to the portfolio to view metrics.")
+  ```
+
+  </details>
+
+  Aggiorna le posizioni del portafoglio e genera una tabella con i dettagli di ciascun asset.
+
+  In caso di errore, viene mostrato un messaggio informativo con `st.error()` e `st.info()`.
+
+- **insight del portafoglio: statistiche, correlazione e allocazione**
+    <details>
+    <summary>codice</summary>
+    
+    ```python
+    # display portfolio stats, assets correlationa and portfolio allocation
+    try:
+        # correlation data and chart
+        correlation_data = portfolio.assets_correlation().reset_index()
+        correlation_data = correlation_data.melt(
+            "Ticker", var_name="Ticker2", value_name="Correlation"
+        )
+        correlation_chart = (
+            alt.Chart(correlation_data)
+            .mark_rect()
+            .encode(
+                x="Ticker:O",
+                y="Ticker2:O",
+                color=alt.Color(
+                    "Correlation:Q", scale=alt.Scale(scheme="redyellowblue", domain=[-1, 1])
+                ),
+                tooltip=["Ticker", "Ticker2", alt.Tooltip("Correlation:Q", format=".2")],
+            )
+            .properties(title="Asset Correlaton Matrix", height=400)
+        )
+        correlation_text = correlation_chart.mark_text(baseline="middle").encode(
+            text=alt.Text("Correlation:Q", format=".2f"),
+            color=alt.value("black"),
+        )
+        correlation_chart = correlation_chart + correlation_text
+    
+        # composition data and chart
+        portfolio_composition = portfolio.assets_weights()
+        weights_chart = (
+            alt.Chart(portfolio_composition)
+            .mark_arc()
+            .encode(
+                theta="weight",
+                color="ticker",
+                tooltip=[alt.Tooltip("ticker"), alt.Tooltip("weight:Q", format=".2%")],
+            )
+            .properties(title="Portfolio Allocation", height=400)
+        )
+        weights_text = weights_chart.mark_text(
+            radius=110, size=12, align="center", baseline="middle"
+        ).encode(
+            text="ticker:N",
+            color=alt.value("black"),
+            theta=alt.Theta("weight:Q", stack=True),
+        )
+        weights_chart = weights_chart + weights_text
+    
+        # display stats, correlation and composition into container
+        with st.container():
+            col1, col2, col3 = st.columns(3)
+            col1.dataframe(portfolio.portfolio_stats(), height=353, row_height=45)
+            col2.altair_chart(correlation_chart)
+            col3.altair_chart(weights_chart)
+    except:
+        st.error(f"Unable to load portfolio insights.")
+        st.info(
+            "Please ensure your portfolio contains data to generate these visualizations."
+        ) 
+    ```
+
+    </details>
+
+  Mostra metriche e statistiche riguardanti il portafoglio.
+
+<details>
+<summary>codice completo</summary>
+
+```python
+import altair as alt
+import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+
+from portfolio import Portfolio
+
+# automatically refresh app every 10 secs
+st_autorefresh(interval=10 * 1000)
+
+# init portfolio instance
+portfolio = Portfolio()
+
+# write home page title
+st.title("Portfolio dashboard")
+
+# calculate portfolio cumulative returns and generate chart
+try:
+    cum_ret = portfolio.portfolio_cumulative_return()
+    chart_data = cum_ret.reset_index()
+    chart_data.columns = ["date", "cumulative return"]
+    line_chart = (
+        alt.Chart(chart_data)
+        .mark_line()
+        .encode(
+            x=alt.X("date", axis=alt.Axis(format="%b %d", grid=True)),
+            y=alt.Y("cumulative return:Q", axis=alt.Axis(format=".0%")),
+            tooltip=[
+                alt.Tooltip("date:T", title="Date"),
+                alt.Tooltip("cumulative return:Q", title="Return", format=".3%"),
+            ],
+        )
+        .properties(title="Year-To-Date portfolio cumulative returns (%)", height=500)
+        .configure_axis(grid=True)
+    )
+    st.altair_chart(line_chart)
+except:
+    st.error("Unable to generate cumulative returns chart.")
+    st.info("There is no return data available. Your portfolio may currently be empty.")
+
+#  portfolio metrics header
+st.header("Portfolio metrics", divider=True)
+
+# update portfolio positions and display portfolio dataframe
+portfolio.update_portfolio_positions()
+try:
+    data = portfolio._generate_portfolio_dataframe()
+    if data.empty:
+        st.warning(
+            "Your portfolio is currently empty. Add some assets to begin tracking performance."
+        )
+    st.dataframe(
+        data=data.drop(columns=["created_date", "last_updated_date"]),
+        column_config={
+            "ticker": st.column_config.TextColumn(help="Asset ticker"),
+            "quantity": st.column_config.NumberColumn(help="Asset quantity owned"),
+            "currency": st.column_config.TextColumn(help="Currency of the trade"),
+            "transaction_date": st.column_config.TextColumn(
+                label="last transaction date", help="Trade execution day"
+            ),
+            "avg_buy_price": st.column_config.NumberColumn(
+                label="average buy price", help="Average price paid for a single contract"
+            ),
+            "cost_basis": st.column_config.NumberColumn(
+                label="cost basis", help="Total amount invested for the single position"
+            ),
+            "market_price": st.column_config.NumberColumn(
+                label="market price",help="Current market price of the asset"
+            ),
+            "market_value": st.column_config.NumberColumn(
+                label="market value", help="Total market value of the single position"
+            ),
+            "pl": st.column_config.NumberColumn(label="P&L", help="Profit & Loss"),
+            "pl_pct": st.column_config.NumberColumn(
+                label="P&L (%)", format="percent", help="P&L percentage"
+            ),
+        },
+        hide_index=True,
+        column_order=[
+            "ticker",
+            "quantity",
+            "currency",
+            "transaction_date",
+            "avg_buy_price",
+            "cost_basis",
+            "market_price",
+            "market_value",
+            "pl",
+            "pl_pct",
+            "created_date",
+            "last_updated_date",
+        ],
+    )
+except:
+    st.error(f"Failed to load portfolio details.")
+    st.info("Ensure assets have been added to the portfolio to view metrics.")
+
+# display portfolio stats, assets correlationa and portfolio allocation
+# correlation data and chart
+try:
+    correlation_data = portfolio.assets_correlation().reset_index()
+    correlation_data = correlation_data.melt(
+        "Ticker", var_name="Ticker2", value_name="Correlation"
+    )
+    correlation_chart = (
+        alt.Chart(correlation_data)
+        .mark_rect()
+        .encode(
+            x="Ticker:O",
+            y="Ticker2:O",
+            color=alt.Color(
+                "Correlation:Q", scale=alt.Scale(scheme="redyellowblue", domain=[-1, 1])
+            ),
+            tooltip=["Ticker", "Ticker2", alt.Tooltip("Correlation:Q", format=".2")],
+        )
+        .properties(title="Asset Correlaton Matrix", height=400)
+    )
+    correlation_text = correlation_chart.mark_text(baseline="middle").encode(
+        text=alt.Text("Correlation:Q", format=".2f"),
+        color=alt.value("black"),
+    )
+    correlation_chart = correlation_chart + correlation_text
+
+    # composition data and chart
+    portfolio_composition = portfolio.assets_weights()
+    weights_chart = (
+        alt.Chart(portfolio_composition)
+        .mark_arc()
+        .encode(
+            theta="weight",
+            color="ticker",
+            tooltip=[alt.Tooltip("ticker"), alt.Tooltip("weight:Q", format=".2%")],
+        )
+        .properties(title="Portfolio Allocation", height=400)
+    )
+    weights_text = weights_chart.mark_text(
+        radius=110, size=12, align="center", baseline="middle"
+    ).encode(
+        text="ticker:N",
+        color=alt.value("black"),
+        theta=alt.Theta("weight:Q", stack=True),
+    )
+    weights_chart = weights_chart + weights_text
+
+    # display stats, correlation and composition into container
+    with st.container():
+        col1, col2, col3 = st.columns(3)
+        col1.dataframe(portfolio.portfolio_stats(), height=353, row_height=45)
+        col2.altair_chart(correlation_chart)
+        col3.altair_chart(weights_chart)
+except:
+    st.error(f"Unable to load portfolio insights.")
+    st.info(
+        "Please ensure your portfolio contains data to generate these visualizations."
+    )
+```
+
+</details>
+
+#### `orders.py`
+
+Il file `orders.py` implementa un'interfaccia grafica per la gestione degli ordini usando la libreria `streamlit`.
+
+- **inizializzazione della classe Portfolio**
+
+  ```python
+  portfolio = Portfolio()
+  ```
+
+  Crea un'istanza dell'oggetto `Portfolio`, che gestice i dati finanziari e le metriche del portdafoglio.
+
+- **titolo dell pagina**
+
+  ```python
+  st.title("Orders Dashboard")
+  ```
+
+  Visualizza il titolo principale della pagina.
+
+- **inserimento di un ordine**
+
+    <details>
+    <summary>codice</summary>
+
+  ```python
+  @st.dialog("Order dialog")
+  def order_dialog():
+      """
+      Generate the dialog to insert a new order
+      """
+      st.write("Place an order")
+      ticker = st.text_input(label="Insert ticker", placeholder="Ticker")
+      quantity = int(
+          st.number_input(
+              label="Insert quantity", placeholder="Quantity", value=0, min_value=0
+          )
+      )
+      price = st.number_input(label="Insert price", placeholder="Price", value=None)
+      date = st.text_input(
+          label="Insert date", placeholder="Date (YYYY-MM-DD)", value=None
+      )
+      order_type = st.selectbox(
+          label="Insert order type",
+          index=None,
+          placeholder="Order type (BUY-SELL)",
+          options=("BUY", "SELL"),
+      )
+      currency = st.text_input(
+          label="Insert trade currency", value="USD", placeholder="Currency"
+      )
+      try:
+          if st.button("Submit order"):
+              if not all([ticker, quantity, order_type, currency]):
+                  st.error("All fields except 'Date' and 'Price' are required.")
+                  return
+              if order_type == "BUY":
+                  portfolio.buy_order(
+                      ticker=ticker,
+                      quantity=quantity,
+                      price=price,
+                      date=date,
+                      currency=currency,
+                  )
+              elif order_type == "SELL":
+                  portfolio.sell_order(
+                      ticker=ticker,
+                      quantity=quantity,
+                      price=price,
+                      date=date,
+                      currency=currency,
+                  )
+              st.success("Order placed successfully!")
+              sleep(1)
+              st.rerun()
+      except ValueError as e:
+          st.error(f"Invalid input: {str(e)}")
+      except Exception as err:
+          st.error(f"Failed to submit order: {str(err)}")
+  ```
+
+    </details>
+
+  Apre un dialog interattivo con cui poter immettere un'ordine. L'utente deve inserire i dati nei campi richiesti. In caso in campi necessari non siano compilati, il programma resituisce un avviso di errore. In base al tipo di ordine (acqusito o vendita), il programma esegue uno tra i metodi `buy_order` o `sell_order` della clasee `Portfolio`. In caso di successo il prorgamma mostra un messaggio di conferma e aggiorna la pagina.
+
+  In caso di errore, viene mostrato un messaggio informativo con `st.error()`.
+
+  Il dialog viene attivato dopo pressione del bottone "Place order". Di seguito il codice che lo attiva:
+
+  ```python
+  if st.button("Place order"):
+      order_dialog()
+  ```
+
+- **visualizzazione degli ordini recenti**
+    <details>
+    <summary>codice</summary>
+    
+    ```python
+    # displays order table
+    st.header("Recent Orders (Last 15)", divider=True)
+    try:
+        data = portfolio._generate_orders_dataframe()
+        if data.empty:
+            st.warning("No orders found. Start by placing a BUY or SELL order.")
+        st.dataframe(
+            # data=portfolio._generate_orders_dataframe()
+            data=data.drop(columns=["created_date", "last_updated_date", "id"]).tail(15),
+            height=563,
+            hide_index=True,
+            column_order=[
+                "id",
+                "ticker",
+                "transaction_date",
+                "order_type",
+                "quantity",
+                "currency",
+                "price",
+                "created_date",
+                "last_updated_date",
+            ],
+        )
+    except Exception as err:
+        st.error(f"Unable to load the orders table: {str(err)}")
+        st.info("Check if any orders have been recorded.") 
+    ```
+    </details>
+
+  Il codice recupera tutti gli ordini registrati nel portafoglio e mostra gli ultimi 15 ordini ordinati per data.
+
+  In caso di errore, viene mostrato un messaggio informativo con `st.error()` e `st.info()`.
+
+<details>
+<summary>codice completo</summary>
+
+```python
+from time import sleep
+
+import streamlit as st
+
+from portfolio import Portfolio
+
+portfolio = Portfolio()
+st.title("Orders dashboard")
+
+
+@st.dialog("Order dialog")
+def order_dialog():
+    """
+    Generate the dialog to insert a new order
+    """
+    st.write("Place an order")
+    ticker = st.text_input(label="Insert ticker", placeholder="Ticker")
+    quantity = int(
+        st.number_input(
+            label="Insert quantity", placeholder="Quantity", value=0, min_value=0
+        )
+    )
+    price = st.number_input(label="Insert price", placeholder="Price", value=None)
+    date = st.text_input(
+        label="Insert date", placeholder="Date (YYYY-MM-DD)", value=None
+    )
+    order_type = st.selectbox(
+        label="Insert order type",
+        index=None,
+        placeholder="Order type (BUY-SELL)",
+        options=("BUY", "SELL"),
+    )
+    currency = st.text_input(
+        label="Insert trade currency", value="USD", placeholder="Currency"
+    )
+    try:
+        if st.button("Submit order"):
+            if not all([ticker, quantity, order_type, currency]):
+                st.error("All fields except 'Date' and 'Price' are required.")
+                return
+            if order_type == "BUY":
+                portfolio.buy_order(
+                    ticker=ticker,
+                    quantity=quantity,
+                    price=price,
+                    date=date,
+                    currency=currency,
+                )
+            elif order_type == "SELL":
+                portfolio.sell_order(
+                    ticker=ticker,
+                    quantity=quantity,
+                    price=price,
+                    date=date,
+                    currency=currency,
+                )
+            st.success("Order placed successfully!")
+            sleep(1)
+            st.rerun()
+    except ValueError as e:
+        st.error(f"Invalid input: {str(e)}")
+    except Exception as err:
+        st.error(f"Failed to submit order: {str(err)}")
+
+
+# if place order button is pressed, open order dialog
+if st.button("Place order"):
+    order_dialog()
+
+# displays order table
+st.header("Recent Orders (Last 15)", divider=True)
+try:
+    data = portfolio._generate_orders_dataframe()
+    if data.empty:
+        st.warning("No orders found. Start by placing a BUY or SELL order.")
+    st.dataframe(
+        # data=portfolio._generate_orders_dataframe()
+        data=data.drop(columns=["created_date", "last_updated_date", "id"]).tail(15),
+        height=563,
+        hide_index=True,
+        column_order=[
+            "id",
+            "ticker",
+            "transaction_date",
+            "order_type",
+            "quantity",
+            "currency",
+            "price",
+            "created_date",
+            "last_updated_date",
+        ],
+    )
+except Exception as err:
+    st.error(f"Unable to load the orders table: {str(err)}")
+    st.info("Check if any orders have been recorded.")
+```
+
+</details>
+
+#### `main.py`
+
+Il file `main.py` costituisce l'entrypoint dell'applicazione. Si occupa di importare `home.py` e `orders.py` in modo da poter navigare tra le varie sezioni dell'applicazione e di eseguire l'applicazione stessa.
+
+```python
+import streamlit as st
+
+from portfolio import Portfolio
+
+portfolio = Portfolio()
+
+# set page config
+st.set_page_config(
+    page_title="Portfolio management",
+    layout="wide",
+    page_icon="./assets/linuxshell.png",
+)
+
+# call and display the home page
+home = st.Page("home.py", title="Home", icon=":material/home:")
+
+# call and display the orders page
+orders = st.Page("orders.py", title="Orders", icon=":material/list:")
+
+# set app navigation
+pg = st.navigation([home, orders])
+
+# run app
+pg.run()
+```
