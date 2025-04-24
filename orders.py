@@ -32,7 +32,7 @@ def order_dialog():
     )
     currency = st.text_input(
         label="Insert trade currency", value="USD", placeholder="Currency"
-    )
+    ).upper()
     try:
         if st.button("Submit order"):
             if not all([ticker, quantity, order_type, currency]):
