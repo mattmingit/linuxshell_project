@@ -1116,7 +1116,7 @@ Attualmente il costruttore non ha parametri necessari per l'inizializzazione, ma
 
   Restituisce un dataframe contenente alcune statistiche riguardanti il portafoglio, tra cui il rendimento del portafoglio, la volatilità annualizzata e l'attuale controvalore di mercato del portafoglio.
 
-La classe `Portfolio` possiede, inoltre, alcune funzioni "helper" (sono caratterizzate dal `_` che precede il loro nome, consistono in funzioni interne non accessibili utilizzate per "aiutare" le funzioni principali).
+La classe `Portfolio` possiede, inoltre, alcune funzioni "helper".
 Queste sono:
 
 - `_validate_date`: verifica che la data fornita sia nel formato corretto (`YYYY-MM-DD`) e non sia nel futuro.
