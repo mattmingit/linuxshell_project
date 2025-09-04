@@ -1,7 +1,7 @@
 <h1 align="center">
     <img src="./assets/linuxshell.png" width="100" alt="linuxshell"/>
     <br/>
-    Linuxshell progetto esame
+    Python Broker Sim
 </h1>
 
 Il presente progetto ha lo scopo di sviluppare un'applicazione in Python per la gestione di un portafoglio finanziario. L'applicazione consente di inserire ordini di acquisto e vendita di strumenti finanziari, tenere traccia delle posizioni aperte e calcolare alcune metriche utili per l'analisi del portfaglio, come il valore totale, il profitto/perdita del portfaglio e la distribuzione degli investimenti.
